@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live ISS Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #020824 0, #020617 40%, #000 100%);
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 480px;
+      width: 100%;
+      padding: 1.5rem;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .image-wrapper {
+      position: relative;
+      overflow: hidden;
+      max-height: 220px;
+    }
+
+    .image-wrapper img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      transform: scale(1.05);
+    }
+
+    .badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(15, 118, 110, 0.9);
+      color: #ecfeff;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .content {
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+
+    .title {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .label {
+      color: #9ca3af;
+    }
+
+    .value {
+      font-weight: 500;
+      color: #e5e7eb;
+    }
+
+    .description {
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+      color: #d1d5db;
+      line-height: 1.4;
+    }
+
+    .secondary {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 0.5rem;
+    }
+
+    .actions {
+      margin-top: 1.25rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    button {
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: linear-gradient(135deg, #22c55e, #0ea5e9);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .status {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+      display: inline-block;
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="image-wrapper">
+      <!-- Your ISS / satellite image -->
+      <img src="iss.jpg" alt="Satellite in orbit" />
+      <div class="badge">Live ISS snapshot</div>
+    </div>
+    <div class="content">
+      <div class="title">International Space Station</div>
+      <div id="last-updated" class="subtitle">Click refresh to get the latest position.</div>
+
+      <div class="row">
+        <div class="label">Latitude</div>
+        <div id="lat" class="value">—</div>
+      </div>
+      <div class="row">
+        <div class="label">Longitude</div>
+        <div id="lon" class="value">—</div>
+      </div>
+      <div class="row">
+        <div class="label">Distance from you</div>
+        <div id="distance" class="value">—</div>
+      </div>
+
+      <div id="description" class="description">
+        Hit “Refresh ISS location” to fetch live data via my AWS pipeline (API Gateway → Lambda → STS → S3).
+      </div>
+
+      <div id="small-info" class="secondary"></div>
+
+      <div class="actions">
+        <button id="refresh-btn" onclick="fetchIss()">
+          🔄 Refresh ISS location
+        </button>
+        <div id="status" class="status">
+          <span class="dot"></span>Idle
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Your API Gateway endpoint (POST /uploads)
+  const API_URL = "https://4hg9ege0c1.execute-api.us-east-2.amazonaws.com/dev/uploads";
+
+  async function fetchIss() {
+    const btn = document.getElementById("refresh-btn");
+    const status = document.getElementById("status");
+    const lastUpdated = document.getElementById("last-updated");
+    const latEl = document.getElementById("lat");
+    const lonEl = document.getElementById("lon");
+    const distanceEl = document.getElementById("distance");
+    const descriptionEl = document.getElementById("description");
+    const smallInfoEl = document.getElementById("small-info");
+
+    btn.disabled = true;
+    status.innerHTML = '<span class="dot" style="background:#facc15;"></span>Fetching…';
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        // no headers → simple request → no CORS preflight
+        body: JSON.stringify({ source: "web-ui" }),
+      });
+
+      if (!res.ok) {
+        throw new Error("API error: " + res.status);
+      }
+
+      const data = await res.json();
+      const iss = data.iss || {};
+
+      const timestamp = iss.timestamp_utc || "unknown time";
+      const prettyLat = iss.pretty_lat || "N/A";
+      const prettyLon = iss.pretty_lon || "N/A";
+      const dist =
+        typeof iss.distance_km_from_home === "number"
+          ? `${iss.distance_km_from_home.toFixed(0)} km`
+          : "N/A";
+      const desc = iss.description || "ISS position description not available.";
+
+      lastUpdated.textContent = `Last updated: ${timestamp}`;
+      latEl.textContent = prettyLat;
+      lonEl.textContent = prettyLon;
+      distanceEl.textContent = dist;
+      descriptionEl.textContent = desc;
+      smallInfoEl.textContent =
+        "Data collected via AWS API Gateway → Lambda → STS cross-account role → S3 (Account B).";
+
+      status.innerHTML = '<span class="dot"></span>Live';
+    } catch (err) {
+      console.error(err);
+      status.innerHTML =
+        '<span class="dot" style="background:#ef4444;"></span>Error';
+      descriptionEl.textContent =
+        "Something went wrong fetching ISS data. Check back later.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
