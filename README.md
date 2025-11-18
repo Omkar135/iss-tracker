@@ -38,7 +38,7 @@ A small weekend project where I used **AWS STS**, **Lambda**, **API Gateway**, a
 
 - **AWS**
   - API Gateway (HTTP API)
-  - Lambda (Python 3.x)
+  - Lambda (Python 3.14)
   - STS (`AssumeRole` for cross-account access)
   - S3 (JSON storage in Account B)
   - IAM (roles, trust & permission policies)
